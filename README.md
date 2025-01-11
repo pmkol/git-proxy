@@ -11,6 +11,7 @@ Usage:
   git-proxy [flags]
 
 Flags:
+  -l, --bandwidth-limit int       set total bandwidth limit (MB/s), 0 as no limit (default 0)
   -b, --blacklist-path string     set repository blacklist (default "blacklist.txt")
       --disable-color             disable color output
   -d, --domain-list-path string   set accept domain (default "domainlist.txt")

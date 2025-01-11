@@ -18,6 +18,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/render"
+	R "github.com/juju/ratelimit"
 	"github.com/sagernet/fswatch"
 	L "github.com/sagernet/sing-box/log"
 	"github.com/sagernet/sing/common"
@@ -50,7 +51,10 @@ var (
 	runningPort    int
 	domainListPath string
 	blacklistPath  string
+	bandwidthLimit int
 )
+
+var BandwidthLimiter *R.Bucket
 
 var Blacklist []RepoInfo
 
@@ -76,6 +80,7 @@ func init() {
 	command.PersistentFlags().IntVarP(&runningPort, "running-port", "p", 30000, "disable color output")
 	command.PersistentFlags().StringVarP(&domainListPath, "domain-list-path", "d", "domainlist.txt", "set accept domain")
 	command.PersistentFlags().StringVarP(&blacklistPath, "blacklist-path", "b", "blacklist.txt", "set repository blacklist")
+	command.PersistentFlags().IntVarP(&bandwidthLimit, "bandwidth-limit", "l", 0, "set total bandwidth limit (MB/s), 0 as no limit")
 }
 
 func main() {
@@ -101,6 +106,10 @@ func newError(msg string) *HTTPError {
 }
 
 func run(*cobra.Command, []string) {
+	if bandwidthLimit > 0 {
+		BandwidthLimiter = R.NewBucketWithRate(float64(bandwidthLimit*1024*1024), int64(bandwidthLimit*1024*1024))
+		log.Info("Bandwidth limit is set as ", bandwidthLimit, "MB/s")
+	}
 	if watcher, err := loadDomainList(); err == nil {
 		err = watcher.Start()
 		if err == nil {
@@ -466,6 +475,34 @@ func responseWithRedirect(URL *url.URL) http.Handler {
 	})
 }
 
+var _ io.Reader = (*LimitReader)(nil)
+
+type LimitReader struct {
+	reader io.Reader
+	bucket *R.Bucket
+}
+
+func NewLimitReader(reader io.Reader, bucket *R.Bucket) *LimitReader {
+	return &LimitReader{
+		reader: reader,
+		bucket: bucket,
+	}
+}
+
+func (lr *LimitReader) Read(p []byte) (int, error) {
+	sliceLen := int64(len(p))
+	available := lr.bucket.TakeAvailable(sliceLen)
+	if available == 0 {
+		return 0, nil
+	}
+	if available == sliceLen {
+		return lr.reader.Read(p)
+	}
+	temp := make([]byte, available)
+	defer copy(p, temp)
+	return lr.reader.Read(temp)
+}
+
 func sendRequestWithURL(URL *url.URL) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
@@ -511,7 +548,11 @@ func sendRequestWithURL(URL *url.URL) http.Handler {
 			}
 		}
 		w.WriteHeader(response.StatusCode)
-		io.Copy(w, response.Body)
+		if BandwidthLimiter != nil {
+			io.Copy(w, NewLimitReader(response.Body, BandwidthLimiter))
+		} else {
+			io.Copy(w, response.Body)
+		}
 		log.InfoContext(ctx, "Success proxy request: ", URL, " , method: ", request.Method, " , status: ", response.StatusCode)
 	})
 }

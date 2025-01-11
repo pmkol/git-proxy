@@ -5,6 +5,7 @@ go 1.23.3
 require (
 	github.com/go-chi/chi/v5 v5.2.0
 	github.com/go-chi/render v1.0.3
+	github.com/juju/ratelimit v1.0.2
 	github.com/sagernet/fswatch v0.1.1
 	github.com/sagernet/sing v0.5.1
 	github.com/sagernet/sing-box v1.10.6
@@ -15,6 +16,7 @@ require (
 	github.com/ajg/form v1.5.1 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
+	github.com/kr/text v0.2.0 // indirect
 	github.com/logrusorgru/aurora v2.0.3+incompatible // indirect
 	github.com/miekg/dns v1.1.62 // indirect
 	github.com/sagernet/sing-dns v0.3.0 // indirect
