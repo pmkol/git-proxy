@@ -1,0 +1,14 @@
+/.idea/
+/vendor/
+/site/
+/bin/
+/dist/
+/build/
+/*.jar
+/*.aar
+/*.xcframework/
+.DS_Store
+/config.d/
+/venv/
+domainlist.txt
+blacklist.txt
