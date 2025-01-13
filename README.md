@@ -11,13 +11,14 @@ Usage:
   git-proxy [flags]
 
 Flags:
-  -l, --bandwidth-limit int       set total bandwidth limit (MB/s), 0 as no limit (default 0)
-  -b, --blacklist-path string     set repository blacklist (default "blacklist.txt")
-      --disable-color             disable color output
-  -d, --domain-list-path string   set accept domain (default "domainlist.txt")
-  -h, --help                      help for git-proxy
-  -p, --running-port int          disable color output (default 30000)
-
+  -l, --bandwidth-limit int          set total bandwidth limit (MB/s), 0 as no limit
+  -b, --blacklist-path string        set repository blacklist (default "blacklist.txt")
+      --deny-web-page                deny web page requests
+      --deny-web-page-list strings   deny web page requests list (default [github.com,gist.github.com])
+      --disable-color                disable color output
+  -d, --domain-list-path string      set accept domain (default "domainlist.txt")
+  -h, --help                         help for git-proxy
+  -p, --running-port int             disable color output (default 30000)
 ```
 
 ### URL scheme

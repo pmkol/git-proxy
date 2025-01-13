@@ -47,11 +47,13 @@ var client = &http.Client{
 }
 
 var (
-	disableColor   bool
-	runningPort    int
-	domainListPath string
-	blacklistPath  string
-	bandwidthLimit int
+	disableColor    bool
+	runningPort     int
+	domainListPath  string
+	blacklistPath   string
+	bandwidthLimit  int
+	denyWebPage     bool
+	denyWebPageList []string
 )
 
 var BandwidthLimiter *R.Bucket
@@ -81,6 +83,8 @@ func init() {
 	command.PersistentFlags().StringVarP(&domainListPath, "domain-list-path", "d", "domainlist.txt", "set accept domain")
 	command.PersistentFlags().StringVarP(&blacklistPath, "blacklist-path", "b", "blacklist.txt", "set repository blacklist")
 	command.PersistentFlags().IntVarP(&bandwidthLimit, "bandwidth-limit", "l", 0, "set total bandwidth limit (MB/s), 0 as no limit")
+	command.PersistentFlags().BoolVarP(&denyWebPage, "deny-web-page", "", false, "deny web page requests")
+	command.PersistentFlags().StringSliceVarP(&denyWebPageList, "deny-web-page-list", "", []string{"github.com", "gist.github.com"}, "deny web page requests list")
 }
 
 func main() {
@@ -109,6 +113,9 @@ func run(*cobra.Command, []string) {
 	if bandwidthLimit > 0 {
 		BandwidthLimiter = R.NewBucketWithRate(float64(bandwidthLimit*1024*1024), int64(bandwidthLimit*1024*1024))
 		log.Info("Bandwidth limit is set as ", bandwidthLimit, "MB/s")
+	}
+	if denyWebPage && len(denyWebPageList) > 0 {
+		log.Info("Denying web page requests, domain list: [", strings.Join(denyWebPageList, ", "), "]")
 	}
 	if watcher, err := loadDomainList(); err == nil {
 		err = watcher.Start()
@@ -531,6 +538,12 @@ func sendRequestWithURL(URL *url.URL) http.Handler {
 			return
 		}
 		defer response.Body.Close()
+		if denyWebPage && len(denyWebPageList) > 0 && response.StatusCode == http.StatusOK && strings.Contains(strings.ToLower(response.Header.Get("Content-Type")), "text/html") && common.Any(denyWebPageList, func(it string) bool {
+			return strings.ToLower(it) == strings.ToLower(URL.Host)
+		}) {
+			responseWithError(E.New("Refuse to serve web page")).ServeHTTP(w, r)
+			return
+		}
 		isRedirectResponse := common.Any([]int{http.StatusMovedPermanently, http.StatusFound, http.StatusTemporaryRedirect, http.StatusPermanentRedirect}, func(it int) bool {
 			return it == response.StatusCode
 		})
